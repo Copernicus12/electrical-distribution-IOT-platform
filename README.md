@@ -1,100 +1,113 @@
 # Electrical Distribution IoT
 
-**Platformă pentru monitorizarea și coordonarea energetică a unei rețele urbane de distribuție simulate.**
+**Platformă IoT pentru monitorizarea și automatizarea unei rețele electrice de distribuție simulate.**
 
-Electrical Distribution IoT integrează un simulator electric, senzori software, gateway-uri edge, comunicație multiprotocol și o interfață web pentru supravegherea unui sector de distribuție. Platforma urmărește consumul, producția fotovoltaică și energia stocată, validează telemetria și evaluează comenzi de încărcare sau descărcare a bateriilor în limitele rețelei.
+Proiectul integrează senzori software, noduri de tablou, un gateway edge și o interfață web. Obiectivele principale sunt **detectarea anomaliilor**, **reconectarea adaptivă** și **sprijinul între tablouri la suprasarcină**, cu reducerea controlată a consumului flexibil când sprijinul este insuficient.
 
-Proiectul se concentrează pe **detecția locală a anomaliilor**, **reconectarea adaptivă** și **coordonarea resurselor energetice**. Eficiența acestor mecanisme urmează să fie verificată experimental.
-
-> **Stadiu:** proiectare și documentare tehnică. Repository-ul nu conține încă o implementare executabilă; funcționalitățile descrise reprezintă arhitectura planificată.
+> **Stadiu:** proiectare. Sistemul va fi inițial integral simulat; rezultatele experimentale și instrucțiunile de rulare vor fi adăugate după implementare.
 
 ## Modelul rețelei
 
-Scenariul inițial include patru tablouri (`T01`–`T04`) conectate într-o rețea radială, alimentată dintr-o sursă echivalentă printr-un transformator. Tablourile `T01` și `T03` au asociate panouri fotovoltaice și baterii.
+Simulăm un cartier cu **30 de apartamente de două camere**, distribuite între patru tablouri. Parametrii electrici sunt ipoteze de simulare, care vor fi verificați prin calcul. T01–T04 sunt tablouri, nu transformatoare. Fiecare poate primi sprijin de la oricare dintre celelalte trei. Alimentarea inițială este radială; legăturile suplimentare, normal deschise, permit configurații temporar buclate.
+
+| Element | Configurație |
+| --- | --- |
+| Alimentare | 1 sursă echivalentă de 20 kV și 1 transformator 20/0,4 kV, 400 kVA |
+| Tablouri și consumatori | T01: 8; T02: 7; T03: 8; T04: 7 apartamente |
+| Producători locali | PV1: 30 kW pentru T01–T02; PV2: 30 kW pentru T03–T04; fiecare racordată o singură dată la nodul comun al grupului |
+| Interconectare | 6 legături între toate perechile de tablouri; fiecare tablou poate sprijini oricare dintre celelalte trei |
+| Noduri informatice | 4 noduri de tablou, 1 gateway edge comun și 1 centru de control |
+| Simulare | 24 h simulate, pas de 1 s; gestionarea bateriilor rămâne o extensie ulterioară |
+
+Profilurile casnice sintetice variază zi/noapte și între apartamente, cu **150–250 kWh/lună** de referință, pentru o lună de 30 de zile. Fiecare locuință are consum esențial și consum flexibil comandabil, o ipoteză explicită a simulatorului. Puterile se agregă per tablou pentru calculul electric; reducerea consumului flexibil modifică energia efectiv servită.
 
 ```mermaid
 flowchart TD
-    GRID["Rețea din amonte"] --> TR["Transformator"]
-    TR --> T01["T01 · Consum + PV + baterie"]
-    TR --> T03["T03 · Consum + PV + baterie"]
-    T01 --> T02["T02 · Consum"]
-    T03 --> T04["T04 · Consum"]
+    GRID["Rețea 20 kV"] --> TR["Transformator 400 kVA"]
+    TR --> A["Nod comun T01–T02"]
+    TR --> B["Nod comun T03–T04"]
+    PV1["PV1 · 30 kW"] --> A
+    PV2["PV2 · 30 kW"] --> B
+    A --> T01["T01 · 8 apartamente"]
+    T01 --> T02["T02 · 7 apartamente"]
+    B --> T03["T03 · 8 apartamente"]
+    T03 --> T04["T04 · 7 apartamente"]
+    T01 -.- T03
+    T01 -.- T04
+    T02 -.- T03
+    T02 -.- T04
 ```
 
-Configurația de pornire folosește o rețea de **0,4 kV**, un transformator **20/0,4 kV de 400 kVA**, consumuri de **10–60 kW per tablou**, surse PV de până la **80 kW** și baterii de **100 kWh / 30 kW**, cu limite de încărcare de **20–90% SoC**. Aceste valori sunt ipoteze de simulare, nu recomandări pentru instalații reale.
+Liniile punctate reprezintă legăturile suplimentare de sprijin, normal deschise. Sprijinul este posibil în ambele sensuri, în limitele electrice verificate prin simulare.
 
 ## Arhitectură și funcționalități
 
+**Tablourile primesc alimentarea și distribuie energia către circuitele locuințelor**, integrând protecția, comanda și măsurarea. Nodul fiecărui tablou citește senzorii și stările echipamentelor, numără acționările confirmate și transmite datele către edge. Ulterior, nodurile pot rula pe Raspberry Pi cu senzori reali; gateway-ul edge rămâne separat.
+
 ```mermaid
 flowchart TD
-    SIM["Simulator electric + senzori"] --> EDGE["Gateway-uri edge"]
-    EDGE <--> PEER["Schimb de date între gateway-uri"]
-    EDGE --> COMM["MQTT / HTTPS / WSS"]
-    COMM --> API["FastAPI · Ingestie și coordonare"]
-    API <--> DB[("Bază de date")]
-    API --> WEB["Laravel · Dashboard"]
-    API --> CMD["Comenzi energetice"]
-    CMD --> EDGE
-    EDGE --> SIM
+    SIM["Simulator electric + senzori"] --> N["4 noduri · viitoare Raspberry Pi"]
+    N <-->|"Stări între noduri"| PEER["Comunicație între tablouri"]
+    N <-->|"MQTT / HTTPS / WSS"| EDGE["1 gateway edge"]
+    EDGE <-->|"MQTT / HTTPS / WSS"| API["Cloud · FastAPI"]
+    API <--> DB[("PostgreSQL")]
+    API <--> WEB["Laravel 12 / PHP"]
+    N -->|"Comenzi simulate"| SIM
 ```
 
-- **Simulatorul** generează profiluri reproductibile de consum și producție, calculează fluxurile de putere cu `pandapower` și introduce controlat erori, întârzieri sau lipsuri în măsurători.
-- **Gateway-urile edge** verifică formatul, unitățile, ordinea temporală și plauzibilitatea datelor. Valorile brute și corecțiile sunt păstrate pentru trasabilitate; valorile critice reale sunt semnalate, nu normalizate artificial. Detectarea anomaliilor poate continua local când centrul este inaccesibil.
-- **Comunicația multiprotocol** utilizează MQTT, HTTPS sau WebSocket securizat (WSS), în funcție de serviciile accesibile. Mesajele sunt identificate, confirmate și deduplicate; cele neconfirmate pot fi retransmise după reconectare.
-- **Backend-ul central** colectează telemetria, corelează alertele și verifică comenzile energetice. Fiecare comandă are identificator, termen de valabilitate și stare de execuție, pentru a evita aplicarea duplicatelor sau a comenzilor expirate.
-- **Interfața web** afișează topologia, consumul, producția, starea bateriilor, alertele și protocoalele active. Măsurătorile învechite sunt evidențiate explicit.
+- **Simulatorul** generează consumul și producția, calculează regimul electric cu `pandapower` și injectează anomalii.
+- **Edge-ul** validează formatul, unitățile, timpul și plauzibilitatea; păstrează datele brute și corecțiile. Valorile critice reale sunt semnalate, nu normalizate artificial. Detecția continuă când cloud-ul este inaccesibil.
+- **Centrul și dashboard-ul** stochează istoricul și afișează consumul, producția, alertele, stările aparatelor și protocoalele active. Datele învechite sunt marcate.
+
+| Echipament digital simulat | Măsurători / stări |
+| --- | --- |
+| Analizor PowerLogic PM3255 | Tensiune, curent, putere, energie, frecvență și factor de putere |
+| TH110 și CL110 | Temperaturile conexiunilor, temperatura și umiditatea dulapului |
+| Monitorizarea ușii și a echipamentelor | Ușă deschisă/închisă, stări, declanșări și număr de acționări confirmate |
+| Termostat și monitorizarea încălzitorului | Cerere de încălzire, cuplare și consum; temperatura prin senzorul ambiental sau termostat compatibil |
 
 ### Reconectare adaptivă
 
-Un manager de conexiune monitorizează disponibilitatea serviciilor, latența și confirmările de livrare. Când legătura activă cade, selectează dintre protocoalele compatibile și accesibile alternativa cu cel mai mic cost estimat:
+Nodurile și edge-ul selectează automat dintre **MQTT, HTTPS și WSS** un serviciu compatibil și accesibil, pe baza latenței, eșecurilor și traficului. Pragurile de stabilitate evită comutările repetate; mesajele neconfirmate sunt memorate, retransmise și deduplicate. Același principiu se aplică schimbului de mesaje între tablouri. Este necesară cel puțin o cale de comunicație funcțională.
 
-\[
-C(p)=w_L\hat L_p+w_E\hat E_p+w_B\hat B_p,\qquad w_L+w_E+w_B=1
-\]
+### Sprijin la suprasarcină și control manual
 
-Costul combină latența, rata eșecurilor și traficul per mesaj util. Pragurile de stabilitate limitează comutările repetate. Schimbarea protocolului nu poate remedia oprirea gateway-ului sau pierderea tuturor căilor de rețea.
+La depășirea persistentă a pragului de încărcare, edge-ul evaluează celelalte trei tablouri și selectează sprijinul disponibil pentru **excesul de sarcină**, fără împărțire obligatorie 50/50. Repartizarea rezultă din calculul electric; sunt verificate tensiunile și limitele ramurilor și transformatorului comun. Dacă sprijinul este insuficient, se reduce consumul flexibil; o depășire rămasă nerezolvată generează alertă.
 
-### Coordonare energetică
-
-Centrul analizează date recente și valide și generează comenzi candidate pentru baterii. Fiecare comandă este verificată printr-un calcul de flux de putere: tensiunile, curenții, încărcarea transformatorului și limitele bateriilor trebuie respectate. Dintre comenzile fezabile sunt preferate cele care reduc pierderile, fără a compromite alimentarea consumatorilor.
-
-Starea bateriilor este actualizată la fiecare pas în funcție de putere, durată și randamente. Dacă nu există o comandă fezabilă, sistemul raportează situația în loc să forțeze un plan invalid. Distanța electrică poate ghida selecția resurselor, dar nu garantează pierderi minime.
+Operatorul poate comanda din dashboard, cu prioritate temporară față de automatizare, în limitele electrice modelate. Când configurația inițială redevine fezabilă și stabilă, sistemul revine automat și încheie intervenția manuală. Comutarea este declanșată de încărcare, nu de programări orare. Comenzile sunt identificate și confirmate; termostatul comandă local încălzitorul.
 
 ## Tehnologii
 
-| Componentă | Tehnologii prevăzute |
+| Componentă | Tehnologii |
 | --- | --- |
-| Simulare și gateway-uri | Python, `asyncio` |
-| Calcul electric | `pandapower` |
-| Comunicații | MQTT, HTTPS, WSS |
-| API și coordonare | FastAPI |
-| Dashboard | Laravel 12, PHP, Blade, JavaScript |
-| Persistență | PostgreSQL (în evaluare) |
+| Simulare, noduri și edge | Python, `asyncio`, `pandapower` |
+| Comunicații și backend | MQTT, HTTPS, WSS, FastAPI |
+| Dashboard și persistență | Laravel 12, PHP, Blade, JavaScript, PostgreSQL |
 
 ## Evaluare experimentală
 
-Experimentele sunt proiectate pentru a compara metodele în condiții reproductibile, cu aceleași profiluri, anomalii și seed-uri.
+**RQ:** În ce condiții detecția la edge reduce latența și traficul față de cloud? **Ipoteză:** procesarea locală îmbunătățește acest compromis când comunicația este degradată.
 
-| Comparație | Indicatori urmăriți |
+| Comparație | Indicatori |
 | --- | --- |
-| Detecție centralizată vs. edge | F1, alarme false, latența detecției, trafic către centru |
-| Protocol fix vs. selecție adaptivă | Timp de reconectare, rată de livrare, duplicate, număr de comutări |
-| Proximitate vs. evaluare electrică a comenzilor | Pierderi de energie, încălcări de limite, energie servită, SoC final |
+| Aceeași detecție la edge vs. cloud | Latența detecției și trafic către centru |
+| Protocol fix vs. selecție adaptivă | Reconectare, rată de livrare, duplicate și comutări |
+| Reducere locală fără sprijin vs. sprijin urmat de reducere | Durata suprasarcinii, energie flexibilă neservită, încălcări de limite și comutări |
 
-Scenariile includ funcționare normală, suprasarcină, erori de senzori, surplus fotovoltaic, căderea brokerului MQTT și indisponibilitatea tuturor comunicațiilor. Rezultatele vor fi raportate separat pentru detectarea locală, afișarea în dashboard și efectele comenzilor asupra rețelei. **Nu sunt prezentate încă rezultate experimentale validate.**
+Se folosesc aceleași profiluri, seed-uri și anomalii: suprasarcină, încălzire, frig, erori de senzori și căderi de comunicație. Se verifică sprijinul disponibil/insuficient, prioritatea manuală, revenirea automată, confirmarea comenzilor și funcționarea fără cloud. Nu sunt raportate încă rezultate validate. Experimentele sunt integral simulate, pe un model trifazat echilibrat, și nu validează comutații pe instalații fizice.
 
-## Limitări
+## Referințe științifice
 
-Modelul electric este trifazat echilibrat și nu reprezintă protecții reale, tranzitorii rapide sau dezechilibre între faze. Simularea nu comandă infrastructură electrică fizică, iar avantajele strategiilor analizate nu sunt presupuse înainte de măsurători. Reconectarea adaptivă necesită cel puțin o cale de comunicație funcțională.
+Bibliografie pentru fundamentarea arhitecturii, profilurilor și experimentelor; parametrii scenariului sunt alegeri ale proiectului.
 
-## Referințe
+1. Güngör et al. (2011). [Smart Grid Technologies: Communication Technologies and Standards](https://doi.org/10.1109/TII.2011.2166794). *IEEE Transactions on Industrial Informatics*.
+2. Shi et al. (2016). [Edge Computing: Vision and Challenges](https://doi.org/10.1109/JIOT.2016.2579198). *IEEE Internet of Things Journal*.
+3. Bonomi et al. (2012). [Fog Computing and Its Role in the Internet of Things](https://doi.org/10.1145/2342509.2342513). *ACM MCC Workshop*.
+4. Dizdarević et al. (2019). [A Survey of Communication Protocols for Internet of Things and Related Challenges of Fog and Cloud Computing Integration](https://doi.org/10.1145/3292674). *ACM Computing Surveys*.
+5. Richardson et al. (2010). [Domestic Electricity Use: A High-Resolution Energy Demand Model](https://doi.org/10.1016/j.enbuild.2010.05.023). *Energy and Buildings*.
+6. Pipattanasomporn et al. (2014). [Load Profiles of Selected Major Household Appliances and Their Demand Response Opportunities](https://doi.org/10.1109/TSG.2013.2268664). *IEEE Transactions on Smart Grid*.
+7. Thurner et al. (2018). [pandapower—An Open-Source Python Tool for Convenient Modeling, Analysis, and Optimization of Electric Power Systems](https://doi.org/10.1109/TPWRS.2018.2829021). *IEEE Transactions on Power Systems*.
 
-- [pandapower — Power Flow](https://pandapower.readthedocs.io/en/latest/powerflow.html)
-- [OASIS — MQTT 5.0](https://docs.oasis-open.org/mqtt/mqtt/v5.0/mqtt-v5.0.html)
-- [FastAPI](https://fastapi.tiangolo.com/)
-- [Laravel 12 — Blade](https://laravel.com/docs/12.x/blade)
-
-Pentru prezentarea extinsă, vezi [documentul proiectului](Propunere_de_proiect__Electrical_Distribution_IoT_.pdf).
 
 ## Autori
 
