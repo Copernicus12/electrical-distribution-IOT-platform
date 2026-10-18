@@ -40,6 +40,16 @@ flowchart TD
 
 Liniile punctate reprezintă legăturile suplimentare de sprijin, normal deschise. Sprijinul este posibil în ambele sensuri, în limitele electrice verificate prin simulare.
 
+
+## Obiective
+
+- **Monitorizarea rețelei electrice** – colectarea și vizualizarea consumului, producției fotovoltaice, parametrilor electrici și stărilor echipamentelor.
+- **Detectarea anomaliilor** – identificarea locală a valorilor eronate, suprasarcinilor și problemelor de funcționare.
+- **Reconectarea adaptivă** – menținerea comunicației prin selectarea automată între MQTT, HTTPS și WSS.
+- **Gestionarea suprasarcinilor** – redistribuirea sarcinii prin sprijin între tablouri și reducerea consumului flexibil atunci când este necesar.
+- **Automatizarea și controlul rețelei** – aplicarea comenzilor automate sau manuale, cu verificarea limitelor electrice.
+- **Evaluarea performanței** – compararea soluțiilor de detecție, comunicație și gestionare a suprasarcinilor în scenarii simulate.
+
 ## Arhitectură și funcționalități
 
 **Tablourile primesc alimentarea și distribuie energia către circuitele locuințelor**, integrând protecția, comanda și măsurarea. Nodul fiecărui tablou citește senzorii și stările echipamentelor, numără acționările confirmate și transmite datele către edge. Ulterior, nodurile pot rula pe Raspberry Pi cu senzori reali; gateway-ul edge rămâne separat.
