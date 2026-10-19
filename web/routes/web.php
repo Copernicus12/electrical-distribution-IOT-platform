@@ -6,6 +6,7 @@ Route::inertia('/', 'Welcome')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'Dashboard')->name('dashboard');
+    Route::inertia('network-plan', 'NetworkPlan')->name('network-plan');
 });
 
 require __DIR__.'/settings.php';
