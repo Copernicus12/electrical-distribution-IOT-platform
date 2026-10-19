@@ -27,6 +27,7 @@ import {
 import type { Material, Object3D } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createNetworkModels } from './createNetworkModels';
+import { supportLinkColor } from './networkColors';
 import {
     assetById,
     networkAssets,
@@ -104,11 +105,13 @@ export function createNetworkScene(
     const solar = new MeshBasicMaterial({ color: 0xc8a65b });
     const residential = new MeshBasicMaterial({ color: 0x648e86 });
     const support = new LineDashedMaterial({
-        color: 0xa194c4,
+        color: supportLinkColor,
         dashSize: 0.24,
         gapSize: 0.18,
         transparent: true,
-        opacity: 0.8,
+        opacity: 0.95,
+        toneMapped: false,
+        depthWrite: false,
     });
     const supportGroup = new Group();
     supportGroup.visible = false;

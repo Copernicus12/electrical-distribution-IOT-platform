@@ -15,6 +15,7 @@ import type {
     ProjectedLabel,
 } from '@/components/network-plan/createNetworkScene';
 import NetworkEquipmentInspector from '@/components/network-plan/NetworkEquipmentInspector.vue';
+import { supportLinkColor } from '@/components/network-plan/networkColors';
 import { assetById } from '@/components/network-plan/networkTopology';
 import { Button } from '@/components/ui/button';
 
@@ -162,6 +163,14 @@ onBeforeUnmount(() => {
                     variant="outline"
                     class="h-7 text-xs"
                     :aria-pressed="supportVisible"
+                    :style="
+                        supportVisible
+                            ? {
+                                  color: supportLinkColor,
+                                  borderColor: supportLinkColor,
+                              }
+                            : undefined
+                    "
                     :disabled="loading || !!error"
                     @click="supportVisible = !supportVisible"
                 >
@@ -312,7 +321,8 @@ onBeforeUnmount(() => {
                 >
                 <span v-if="supportVisible" class="flex items-center gap-2"
                     ><span
-                        class="w-5 border-t border-dashed border-violet-400"
+                        class="w-5 border-t border-dashed"
+                        :style="{ borderColor: supportLinkColor }"
                     />
                     Normally open</span
                 >
