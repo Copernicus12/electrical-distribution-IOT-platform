@@ -2,6 +2,7 @@
 
 import json
 import math
+import uuid
 from datetime import datetime, timezone
 
 MAX_MESSAGE_BYTES = 64 * 1024  # JSON payload, excluding the newline
@@ -10,6 +11,12 @@ FIELDS = {
     "electrical": ("voltage_v", "current_a", "active_power_w", "energy_kwh", "frequency_hz", "power_factor"),
     "connections": ("temperature_c",),
     "ambient": ("temperature_c", "humidity_pct"),
+}
+ALL_FIELDS = {
+    **FIELDS,
+    "equipment": ("door_open", "breaker_closed", "trip_count", "confirmed_operations"),
+    "heating": ("room_temperature_c", "heating_demand", "heater_on", "active_power_w"),
+    "generation": ("pv_power_w", "energy_kwh"),
 }
 
 
@@ -26,13 +33,18 @@ def validate(message):
         raise ValueError("unsupported schema_version")
     panel = message.get("panel_id")
     kind = message.get("sensor_type")
-    if panel not in PANELS or not isinstance(kind, str) or kind not in FIELDS:
+    if panel not in PANELS or not isinstance(kind, str) or kind not in ALL_FIELDS:
         raise ValueError("unknown panel_id or sensor_type")
     if message.get("sensor_id") != "{}-{}".format(panel, kind):
         raise ValueError("sensor_id does not match panel and type")
     sequence = message.get("sequence")
     if type(sequence) is not int or sequence < 0:
         raise ValueError("sequence must be a nonnegative integer")
+    if "message_id" in message:
+        try:
+            uuid.UUID(message["message_id"])
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ValueError("message_id must be a UUID") from exc
     stamp = message.get("timestamp")
     if not isinstance(stamp, str):
         raise ValueError("timestamp must be an ISO 8601 UTC string")
@@ -43,7 +55,7 @@ def validate(message):
     except (ValueError, OverflowError) as exc:
         raise ValueError("invalid UTC timestamp") from exc
     values = message.get("measurements")
-    if not isinstance(values, dict) or set(values) != set(FIELDS[kind]):
+    if not isinstance(values, dict) or set(values) != set(ALL_FIELDS[kind]):
         raise ValueError("unexpected measurement fields")
     for value in values.values():
         if type(value) not in (int, float):

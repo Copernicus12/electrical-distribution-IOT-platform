@@ -1,6 +1,7 @@
 """Concurrent TCP reception, newline framing and connection cleanup."""
 
 import asyncio
+import json
 import logging
 
 from .protocol import MAX_MESSAGE_BYTES
@@ -39,7 +40,10 @@ class TCPServer:
                     LOG.warning("Incomplete message from %s", peer)
                     break
                 try:
-                    self.on_message(line)
+                    response = self.on_message(line)
+                    if response is not None:
+                        writer.write((json.dumps(response, allow_nan=False) + "\n").encode("utf-8"))
+                        await writer.drain()
                 except (ValueError, UnicodeError, RecursionError) as exc:
                     LOG.warning("Invalid message from %s: %s", peer, exc)
         except (ConnectionError, OSError) as exc:

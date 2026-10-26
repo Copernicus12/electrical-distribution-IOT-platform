@@ -11,10 +11,15 @@ from ..sensors.generator import Generator
 LOG = logging.getLogger(__name__)
 
 
-def run_sensor(panel, kind, host, port, stop):
+def run_sensor(panel, kind, host, port, stop, adaptive=False):
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(processName)s %(levelname)s %(message)s")
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     generator = Generator(panel, kind)
+    if adaptive:
+        from .adaptive import create_transport_manager
+
+        _run_adaptive(panel, kind, host, port, stop, generator, create_transport_manager)
+        return
     delay = 1
     previous = None
     while not stop.is_set():
@@ -35,3 +40,21 @@ def run_sensor(panel, kind, host, port, stop):
             if stop.wait(delay):
                 break
             delay = min(delay * 2, 5)
+
+
+def _run_adaptive(panel, kind, host, port, stop, generator, create_manager):
+    manager = create_manager(panel, kind, host, port)
+    previous = None
+    try:
+        while not stop.is_set():
+            now = time.monotonic()
+            message = generator.sample(0 if previous is None else now - previous)
+            previous = now
+            if not manager.publish(message):
+                LOG.warning("%s-%s: sample queued; no route acknowledged delivery", panel, kind)
+            else:
+                manager.drain_pending(max_messages=5)
+            if stop.wait(1):
+                break
+    finally:
+        manager.close()

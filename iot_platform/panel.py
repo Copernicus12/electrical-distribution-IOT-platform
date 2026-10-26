@@ -2,7 +2,7 @@
 
 import logging
 
-from .connections.protocol import FIELDS
+from .connections.protocol import ALL_FIELDS, FIELDS
 from .connections.client import run_sensor
 
 LOG = logging.getLogger(__name__)
@@ -22,16 +22,20 @@ def stop_children(children):
             child.join()
 
 
-def run_panel(panel, host, port, stop):
+def run_panel(panel, host, port, stop, adaptive=False, full_sensors=False):
     import multiprocessing as mp
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(processName)s %(levelname)s %(message)s")
     children = []
     reported = set()
     try:
-        for kind in FIELDS:
+        sensor_types = ALL_FIELDS if full_sensors else FIELDS
+        for kind in sensor_types:
             process = mp.get_context("spawn").Process(
-                target=run_sensor, args=(panel, kind, host, port, stop), name="{}-{}".format(panel, kind))
+                target=run_sensor,
+                args=(panel, kind, host, port, stop, adaptive),
+                name="{}-{}".format(panel, kind),
+            )
             process.start()
             children.append(process)
         while not stop.wait(0.2):

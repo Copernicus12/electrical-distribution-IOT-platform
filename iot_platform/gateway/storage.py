@@ -4,8 +4,39 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import sqlite3
 
 from ..connections.protocol import FIELDS, PANELS
+
+
+class MessageInbox:
+    """Durable message-ID deduplication for transport retries."""
+
+    def __init__(self, path):
+        self.path = Path(path)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.database = sqlite3.connect(self.path, timeout=30, check_same_thread=False)
+        self.database.execute(
+            "CREATE TABLE IF NOT EXISTS received_messages "
+            "(message_id TEXT PRIMARY KEY, received_at TEXT NOT NULL)"
+        )
+        self.database.commit()
+
+    def remember(self, message_id, received_at):
+        with self.database:
+            cursor = self.database.execute(
+                "INSERT OR IGNORE INTO received_messages(message_id, received_at) VALUES (?, ?)",
+                (message_id, received_at),
+            )
+        return cursor.rowcount == 1
+
+    def contains(self, message_id):
+        return self.database.execute(
+            "SELECT 1 FROM received_messages WHERE message_id = ?", (message_id,)
+        ).fetchone() is not None
+
+    def close(self):
+        self.database.close()
 
 
 def last_values_path(history_path):
@@ -28,6 +59,7 @@ class TelemetrySnapshot:
             "timestamp": record["timestamp"],
             "received_at": record["received_at"],
             "sequence": record["sequence"],
+            "anomalies": record.get("anomalies", []),
             "measurements": {
                 name: round(value, 4) if isinstance(value, float) else value
                 for name, value in record["measurements"].items()
