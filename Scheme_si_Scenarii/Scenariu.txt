@@ -1,0 +1,87 @@
+SCENARIUL PROIECTULUI
+
+1. CE VREM SĂ REZOLVĂM
+
+Ne imaginăm un cartier cu 30 de apartamente, alimentate prin patru tablouri electrice: T01, T02, T03 și T04. T01 și T03 au fiecare câte 8 apartamente, iar T02 și T04 au fiecare câte 7. Cartierul are un transformator comun și două grupuri de panouri solare.
+
+Tablourile sunt legate între ele. Dacă apare o problemă pe un traseu, sistemul poate căuta o altă cale de alimentare prin celelalte tablouri. Înainte de schimbare, verifică dacă acestea pot prelua consumul.
+
+Scopul este să descoperim ce nu funcționează, să intervenim unde este nevoie și să păstrăm alimentarea consumatorilor atunci când rețeaua permite acest lucru. Prin consumatori înțelegem luminile și aparatele electrice din apartamente.
+
+La început, cartierul, senzorii și schimbările de alimentare sunt simulate pe calculator. Textul descrie funcționarea propusă, inclusiv funcții care urmează să fie implementate.
+
+2. CUM FUNCȚIONEAZĂ ÎN MOD NORMAL
+
+În tablouri există senzori care măsoară temperatura, curentul și alte valori electrice. Sunt urmărite și stările întrerupătoarelor. Senzorii măsoară, iar întrerupătoarele și contactoarele cuplează sau decuplează circuitele.
+
+Datele sunt trimise către gateway, adică un calculator local care le verifică și urmărește dacă apare ceva neobișnuit. Acesta trimite către cloud datele utile, alertele și rezultatele verificărilor. Cloud-ul este partea sistemului care păstrează informațiile într-o bază de date și le pune la dispoziția paginii web.
+
+Traseul datelor este:
+Senzori din tablou → gateway → cloud și baza de date → pagina web.
+
+Operatorul vede în pagină ce se întâmplă și poate cere o verificare sau o schimbare. Cererea se întoarce astfel:
+Pagina web → cloud → gateway → tabloul vizat.
+
+După executarea unei comenzi, senzorii trimit măsurători noi. Sistemul verifică astfel dacă schimbarea chiar a avut efect. Faptul că o comandă a fost trimisă nu înseamnă automat că a fost și executată.
+
+3. EXEMPLUL PRINCIPAL: UN SENZOR ARATĂ O TEMPERATURĂ PREA MARE
+
+În T02, un senzor începe să arate o temperatură neobișnuit de mare. Pot exista mai multe explicații: un contact electric se încălzește prea tare, consumul este mai mare sau senzorul măsoară greșit.
+
+Gateway-ul observă situația și trimite o alertă către pagina web. Operatorul apasă „Verifică senzorul din T02”.
+
+Sistemul cere măsurători mai dese de la doi senzori din tablouri diferite: unul din T02 și unul din T03. Urmărește și consumul din cele două tablouri.
+
+Cele două temperaturi nu trebuie să fie egale. Tablourile pot avea consumuri și condiții diferite. Ne interesează cum se schimbă măsurătorile când se schimbă alimentarea, nu doar diferența dintre două numere.
+
+Dacă rețeaua permite, sistemul mută o parte din alimentare pe un traseu prin T03 sau reduce temporar un consum care poate fi amânat. Verifică mai întâi că a scăzut curentul prin contactul investigat, apoi urmărește temperatura. Răcirea are nevoie de timp.
+
+În pagina web se vede ce s-a cerut, ce schimbare s-a făcut și ce au măsurat senzorii după test.
+
+4. DACĂ SENZORUL ESTE DEFECT
+
+De exemplu, senzorul din T02 poate rămâne blocat la aceeași valoare, deși consumul se schimbă. Sistemul îl marchează ca suspect și nu îl mai lasă să decidă singur schimbările automate.
+
+Operatorul poate cere o măsurătoare nouă sau repornirea senzorului, dacă acesta permite. După repornire, sistemul verifică dacă măsurătorile sunt din nou credibile. Dacă problema persistă, cere înlocuirea senzorului.
+
+Senzorul din T03 ajută la verificarea comportamentului rețelei, dar nu măsoară temperatura contactului din T02. Prin urmare, comparația dintre tablouri nu dovedește singură că senzorul este defect. Pentru confirmare poate fi necesar un alt senzor pe contactul respectiv sau o verificare locală. Dacă nu avem suficiente informații, în pagină apare că problema nu a putut fi stabilită încă.
+
+5. DACĂ SE ÎNCĂLZEȘTE PREA TARE UN CONTACT ELECTRIC DINTR-UN CONTACTOR SAU PIESA ACȚIONATĂ MECANIC
+
+Dacă măsurătorile susțin existența unei încălziri reale, sistemul caută o cale prin care să reducă solicitarea piesei afectate.
+
+Poate muta alimentarea pe alt traseu, printr-un alt tablou, dacă acesta poate prelua consumul. După schimbare, urmărește dacă temperatura începe să scadă. Dacă este nevoie, reduce consumul unor aparate care pot fi amânate.
+
+Operatorul vede evoluția temperaturii și primește o solicitare de verificare a piesei. Scăderea temperaturii după redistribuire nu înseamnă că piesa s-a reparat.
+
+6. DACĂ O PIESĂ ESTE COMPLET STRICATĂ
+
+De exemplu, un contactor nu mai funcționează și traseul pe care se află nu mai poate fi folosit.
+
+Sistemul izolează partea defectă și verifică dacă izolarea s-a produs. Dacă piesa stricată nu poate realiza oprirea, este necesar un alt întrerupător funcțional care să separe partea afectată.
+
+Apoi caută un alt tablou care poate alimenta consumatorii. Dacă un singur tablou nu poate prelua tot consumul, verifică dacă sarcina poate fi împărțită între mai multe tablouri, prin legăturile disponibile.
+
+De exemplu, T01 și T03 pot contribui la alimentarea consumatorilor afectați de problema din T02, dacă legăturile și capacitatea lor permit. Împărțirea nu trebuie să fie egală: fiecare preia cât permite rețeaua. Sprijinul se aplică numai dacă partea defectă poate fi ocolită fără să fie alimentată din nou.
+
+În pagina web apare ce piesă trebuie înlocuită și cum sunt alimentați consumatorii. După reparație și verificare, sistemul poate reveni la configurația inițială.
+
+7. DACĂ SE PIERDE LEGĂTURA CU SENZORII UNUI TABLOU
+
+În pagina web se observă întârzieri între datele primite de la senzori. Gateway-ul verifică de cât timp nu a mai primit informații de la tabloul respectiv.
+
+Dacă problema este la modul de comunicare folosit între tablou și gateway, sistemul comută pe alt protocol disponibil: MQTT, HTTPS sau WSS. Acestea sunt moduri diferite prin care sunt trimise datele și comenzile.
+
+De exemplu, dacă legătura prin MQTT nu mai funcționează, sistemul încearcă HTTPS sau WSS și verifică dacă sosesc din nou măsurătorile.
+
+Dacă niciun mod de comunicare nu funcționează, calculatorul din tablou păstrează datele local, atât timp cât el și senzorii încă funcționează. Le trimite când legătura revine. Pagina web arată când au fost primite ultimele informații; valorile vechi nu sunt prezentate ca măsurători actuale.
+
+Schimbarea protocolului nu repară un senzor fără alimentare sau un cablu rupt. Lipsa datelor nu înseamnă neapărat că apartamentele au rămas fără curent. Protecțiile locale continuă să funcționeze, iar schimbările de alimentare care cer confirmări indisponibile nu sunt executate.
+
+8. CU CE AJUTĂ PROIECTUL
+
+Platforma permite investigarea unei probleme, intervenția de la distanță și verificarea rezultatului prin măsurători noi.
+
+Interconectarea tablourilor oferă posibilitatea de a alimenta consumatorii pe alte trasee sau de a împărți sarcina. Comunicarea prin mai multe protocoale ajută la păstrarea legăturii cu tablourile când unul dintre serviciile de comunicație nu mai funcționează.
+
+În demonstrație vom urmări cât de corect identifică sistemul problemele, cât durează intervenția și câți consumatori pot rămâne alimentați. Aceste rezultate vor arăta utilitatea soluției.
