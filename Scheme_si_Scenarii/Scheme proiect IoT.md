@@ -39,3 +39,13 @@ Formularea folosită în schemă: „Dacă se încălzește prea tare un contact
 Schemele arată funcționarea propusă. La început, totul este simulat; legătura completă cu web-ul și testarea senzorilor urmează să fie implementate.
 
 Surse editabile: [rețeaua](./Schema%201%20-%20Retea%20electrica.puml) și [datele și comenzile](./Schema%202%20-%20Tablou%20Gateway%20Cloud%20Web.puml).
+
+## 3. Amplasarea aparatelor în tabloul T02
+
+Pornind de la exemplele de desene tehnice și fotografiile tabloului, am pregătit trei amplasări fictive:
+
+- [Placa interioară](./Amplasari_tablou/01_Amplasare_interioara_T02.svg): șine, relee, borne, PM3255, TH110, CL110 și celelalte monitorizări conectate funcțional la nodul IoT.
+- [Ușa batantă](./Amplasari_tablou/02_Amplasare_usa_batanta_T02.svg): comenzi, contoare, afișaj IoT, contact de ușă, aparate modulare și detaliul deschiderii.
+- [Prizele laterale](./Amplasari_tablou/03_Amplasare_prize_laterale_T02.svg): conectori multipolari, port de date IoT și traseul logic al datelor de la senzori la gateway.
+
+[schema_montare_tablou.pdf](../Documentatie/schema_montare_tablou.pdf), din folderul de documentație, conține toate cele trei planșe A3 la revizia B. [Descrierea amplasărilor](./Amplasari_tablou/README.md) explică senzorii IoT, dimensiunile alese și referințele fotografice. Cotele și reperele sunt fictive; aceste planșe arată amplasarea, fără a defini conexiunile electrice.
